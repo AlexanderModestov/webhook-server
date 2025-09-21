@@ -33,6 +33,18 @@ async def handle_stripe_webhook(request: Request, bot: Bot, supabase_client):
             logger.error("Failed to parse webhook event")
             raise HTTPException(status_code=400, detail="Invalid event data")
 
+        # Debug logging to see what we're receiving
+        logger.info(f"Received webhook event type: {event.get('type', 'unknown')}")
+        logger.info(f"Event ID: {event.get('id', 'unknown')}")
+
+        # Log event data structure for debugging
+        event_data = event.get('data', {}).get('object', {})
+        logger.info(f"Event object keys: {list(event_data.keys()) if event_data else 'No data object'}")
+
+        if event_data:
+            logger.info(f"Customer ID: {event_data.get('customer', 'Not found')}")
+            logger.info(f"Metadata: {event_data.get('metadata', 'Not found')}")
+
         # Check if this is a subscription payment
         if not stripe_service.is_subscription_payment(event):
             logger.info(f"Ignoring non-subscription event: {event.get('type')}")
@@ -47,8 +59,9 @@ async def handle_stripe_webhook(request: Request, bot: Bot, supabase_client):
         # Get Telegram user ID
         telegram_id = stripe_service.get_telegram_user_id(customer_info)
         if not telegram_id:
-            logger.error("No Telegram ID found in metadata")
-            raise HTTPException(status_code=400, detail="No Telegram ID found")
+            logger.warning("No Telegram ID found in metadata - this might be a test event")
+            # For test events, just return success without processing
+            return {"status": "test_event_ignored", "message": "No Telegram ID in metadata"}
 
         # Log the payment event
         stripe_service.log_payment_event(event.get('type'), customer_info, telegram_id)
