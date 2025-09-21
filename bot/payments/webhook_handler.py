@@ -53,8 +53,9 @@ async def handle_stripe_webhook(request: Request, bot: Bot, supabase_client):
         # Extract customer information
         customer_info = stripe_service.extract_customer_info(event)
         if not customer_info:
-            logger.error("Failed to extract customer info")
-            raise HTTPException(status_code=400, detail="Invalid customer data")
+            logger.warning("Failed to extract customer info - this might be a test event or unsupported event type")
+            # For test/unsupported events, just return success without processing
+            return {"status": "event_ignored", "message": "Could not extract customer info"}
 
         # Get Telegram user ID
         telegram_id = stripe_service.get_telegram_user_id(customer_info)
