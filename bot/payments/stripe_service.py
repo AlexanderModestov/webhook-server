@@ -85,32 +85,41 @@ class StripeService:
         """Extract customer information from webhook event"""
         try:
             event_type = event.get('type', '')
-            data = event.get('data', {}).get('object', {})
+            data = event.get('data', {})
+
+            if not data or not isinstance(data, dict):
+                self.logger.warning(f"No data object in event: {event_type}")
+                return None
+
+            obj = data.get('object', {})
+            if not obj or not isinstance(obj, dict):
+                self.logger.warning(f"No object in data for event: {event_type}")
+                return None
 
             if event_type == 'checkout.session.completed':
                 return {
-                    'customer_id': data.get('customer'),
-                    'payment_intent': data.get('payment_intent'),
-                    'amount_total': data.get('amount_total', 0) / 100,  # Convert from cents
-                    'metadata': data.get('metadata', {}),
-                    'subscription_id': data.get('subscription')
+                    'customer_id': obj.get('customer'),
+                    'payment_intent': obj.get('payment_intent'),
+                    'amount_total': obj.get('amount_total', 0) / 100 if obj.get('amount_total') else 0,
+                    'metadata': obj.get('metadata', {}),
+                    'subscription_id': obj.get('subscription')
                 }
             elif event_type == 'payment_intent.succeeded':
                 return {
-                    'customer_id': data.get('customer'),
-                    'payment_intent': data.get('id'),
-                    'amount': data.get('amount', 0) / 100,  # Convert from cents
-                    'metadata': data.get('metadata', {}),
-                    'subscription_id': data.get('invoice', {}).get('subscription') if 'invoice' in data else None
+                    'customer_id': obj.get('customer'),
+                    'payment_intent': obj.get('id'),
+                    'amount': obj.get('amount', 0) / 100 if obj.get('amount') else 0,
+                    'metadata': obj.get('metadata', {}),
+                    'subscription_id': obj.get('invoice', {}).get('subscription') if obj.get('invoice') else None
                 }
             elif event_type == 'invoice.payment_succeeded':
                 return {
-                    'customer_id': data.get('customer'),
-                    'subscription_id': data.get('subscription'),
-                    'amount': data.get('amount_paid', 0) / 100,  # Convert from cents
-                    'metadata': data.get('metadata', {}),
-                    'period_start': datetime.fromtimestamp(data.get('period_start', 0)),
-                    'period_end': datetime.fromtimestamp(data.get('period_end', 0))
+                    'customer_id': obj.get('customer'),
+                    'subscription_id': obj.get('subscription'),
+                    'amount': obj.get('amount_paid', 0) / 100 if obj.get('amount_paid') else 0,
+                    'metadata': obj.get('metadata', {}),
+                    'period_start': datetime.fromtimestamp(obj.get('period_start', 0)) if obj.get('period_start') else None,
+                    'period_end': datetime.fromtimestamp(obj.get('period_end', 0)) if obj.get('period_end') else None
                 }
 
             return None
