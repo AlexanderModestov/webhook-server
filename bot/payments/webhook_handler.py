@@ -103,28 +103,21 @@ async def process_successful_payment(bot: Bot, supabase_client, telegram_id: int
 async def send_subscription_success_message(bot: Bot, telegram_id: int, supabase_client):
     """Send subscription success message to user"""
     try:
-        # Get user language for localized message
-        from bot.commands.commands import get_user_language_async, get_messages_class
+        success_message = """🎉 <b>Payment Successful!</b>
 
-        # Create a dummy message object for language detection
-        class DummyUser:
-            def __init__(self, telegram_id):
-                self.id = telegram_id
+✅ Your subscription has been activated
+🚀 You now have premium access to all features
+📅 Subscription period: 30 days from today
 
-        class DummyMessage:
-            def __init__(self, telegram_id):
-                self.from_user = DummyUser(telegram_id)
+Thank you for your payment! Enjoy your premium experience."""
 
-        dummy_message = DummyMessage(telegram_id)
-        user_language = await get_user_language_async(dummy_message, supabase_client)
-        messages_class = get_messages_class(user_language)
-
-        # Send success message
         await bot.send_message(
             chat_id=telegram_id,
-            text=messages_class.SUBSCRIBE_CMD["payment_success"],
+            text=success_message,
             parse_mode="HTML"
         )
+
+        logger.info(f"Successfully sent subscription confirmation to user {telegram_id}")
 
     except Exception as e:
         logger.error(f"Error sending subscription success message to {telegram_id}: {e}")
