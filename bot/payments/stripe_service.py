@@ -17,16 +17,48 @@ class StripeService:
     def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
         """Verify Stripe webhook signature"""
         try:
+            if not signature:
+                self.logger.error("No signature provided")
+                return False
+
+            if not self.webhook_secret:
+                self.logger.error("No webhook secret configured")
+                return False
+
+            # Parse the signature header
+            elements = signature.split(',')
+            timestamp = None
+            signatures = []
+
+            for element in elements:
+                key, value = element.split('=', 1)
+                if key == 't':
+                    timestamp = value
+                elif key == 'v1':
+                    signatures.append(value)
+
+            if not timestamp or not signatures:
+                self.logger.error("Invalid signature format")
+                return False
+
+            # Create the signed payload
+            signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
+
+            # Compute the expected signature
             expected_signature = hmac.new(
                 self.webhook_secret.encode('utf-8'),
-                payload,
+                signed_payload.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
 
-            # Stripe signature format: "v1=<signature>"
-            received_signature = signature.split('=')[1] if '=' in signature else signature
+            # Compare signatures
+            for signature_value in signatures:
+                if hmac.compare_digest(expected_signature, signature_value):
+                    return True
 
-            return hmac.compare_digest(expected_signature, received_signature)
+            self.logger.error("Signature verification failed")
+            return False
+
         except Exception as e:
             self.logger.error(f"Error verifying webhook signature: {e}")
             return False
